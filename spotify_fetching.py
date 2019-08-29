@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 import warnings
 import pickle
+import sys
 from tqdm import tqdm
 tqdm.pandas()
 from collections import Counter, defaultdict
@@ -26,13 +27,6 @@ path = '/Users/jeremy/Desktop/final_project/data' # use your path
 all_files = glob.glob(path + "/*.csv")
 
 
-
-
-
-
-
-# make it so if TID already exists, everything will be initialized
-# if it doesn't exist, initialize everything with a helper function
 def initialize_empty_dict():
     playlist_word_counts = Counter()
     playlist_descriptions = list()
@@ -51,9 +45,7 @@ def get_playlist_tracks(playlist_id):
         if not playlist:
             return None
         doc = nlp(playlist['name'])
-        description = playlist['description']
-        if description:
-            parsed_playlists[playlist_id] = description
+        parsed_playlists[playlist_id] = playlist['description']
         tokens = [token.lemma_.lower() for token in doc if token.is_alpha]
         user_id = playlist['owner']['id']
         user_ids.add(user_id)
@@ -79,32 +71,53 @@ def get_playlist_tracks(playlist_id):
             for token in tokens:
                 counts[token] += 1
             curr_track['playlist_word_counts'] += counts
-        parsed_playlists.add(playlist_id)
     except:
         unparsed_playlists.add(playlist_id)
 
-dfs = []
-for filename in all_files:
-    df = pd.read_csv(filename)
-    df.drop('0', inplace=True, axis=1)
+
+def get_playlist_ids():
+    dfs = []
+    for filename in all_files:
+        df = pd.read_csv(filename)
+        df.drop('0', inplace=True, axis=1)
+        df.drop_duplicates(inplace=True)
+        df.columns = ['playlist_ids']
+        dfs.append(df)
+    df = pd.concat(dfs)
     df.drop_duplicates(inplace=True)
-    df.columns = ['playlist_ids']
-    dfs.append(df)
+    return df
 
-df = pd.concat(dfs)
-df.drop_duplicates(inplace=True)
+df = get_playlist_ids()
+test = df.iloc[5000:10000]
 
-
-test = df.iloc[:1000]
 parsed_playlists = dict()
 all_songs = defaultdict()
 user_ids = set()
 unparsed_playlists = set()
-test.playlist_ids.progress_apply(get_playlist_tracks)
-# songs.find_and_modify({'tid' : tid}, {'$inc' : counts}, new = True, upsert = True)
-# parsed_playlists.find_and_modify({'pid': playlist_id}, {'description': playlist['description']}, upsert=True)
+
+# test.playlist_ids.progress_apply(get_playlist_tracks)
 list(all_songs.keys())
 
-import sys
 print(sys.getsizeof(all_songs))
 all_songs['4fixebDZAVToLbUCuEloa2']
+
+from pymongo import MongoClient
+client = MongoClient()
+db = client.spotify_db
+tracks = db.tracks
+# workflow
+# three different collections
+# ------ tracks, playlists
+# playlists - {PID:  DESCRIPTION: str}}
+# tracks - {TID: {NAME: str, }}
+# playlist_words - {WORD: {TID: count}}
+'''
+When analyzing a library - do the following for all songs.
+- parse tweets for sentiment, topics
+-
+
+
+tracks - {TID:
+            {NAME: str, AUDIO FEATURES: dict, RELEASE DATE: datetime, TWEETS: list, PLAYLIST OCCURENCES: list, PLAYLIST WORD_COUNTS: dict}}
+1 - check if TID is in
+'''
