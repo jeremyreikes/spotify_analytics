@@ -10,7 +10,7 @@ genius = lyricsgenius.Genius(genius_client_access_token)
 genius.remove_section_headers = True
 genius.verbose = False
 
-def get_lyrics(track):
+def get_lyrics(tid):
     trackname = track.trackname
     artist = track.artist
     song = genius.search_song(trackname, artist)

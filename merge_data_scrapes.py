@@ -52,3 +52,8 @@ def combine_everything():
         pickle.dump(master_file, open(f'{path}/master.p', 'wb'))
 
 # combine_everything()
+
+f = pickle.load(open(f'all_songs_data/master.p', 'rb'))
+f['0UbBJGDeQSiGhfdOWFa7WL']
+keys = list(f.keys())
+keys[:100]
