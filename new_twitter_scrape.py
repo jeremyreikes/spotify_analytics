@@ -8,7 +8,6 @@ from collections import defaultdict, Counter
 import time
 import re
 import requests
-
 pd.set_option('display.max_colwidth', -1)
 
 def get_playlist_id(row):
@@ -32,3 +31,15 @@ def scrape_playlists(until=None):
     scrape_playlists(until)
 
 # scrape_playlists()
+def get_tweets(tid):
+    c = twint.Config()
+    c.Pandas = True
+    c.Pandas_clean = True
+    c.Hide_output = True
+    c.Lang = 'en'
+    c.Limit=1000
+    c.Search = f'open.spotify.com/track/{tid}'
+    df = twint.storage.panda.Tweets_df
+    tweets=  df.tweet
+    geos = df.geo
+    return zip(list(df.tweet), list(geos))

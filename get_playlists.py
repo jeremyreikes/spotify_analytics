@@ -1,12 +1,12 @@
 import pandas as pd
 import numpy as np
 import warnings
+warnings.filterwarnings('ignore')
 import pickle
 import sys
 from tqdm import tqdm
 tqdm.pandas()
 from collections import Counter, defaultdict
-warnings.filterwarnings('ignore')
 from api_keys import spotify_client_id, spotify_client_secret
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
@@ -19,8 +19,8 @@ client = MongoClient()
 db = client.spotify_db
 all_tracks = db.all_tracks
 parsed_playlists = db.parsed_playlists
-# all_tracks.drop()
-# parsed_playlists.drop()
+
+
 client_credentials_manager = SpotifyClientCredentials(client_id=spotify_client_id, client_secret=spotify_client_secret)
 sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
 
@@ -82,7 +82,7 @@ def get_playlist_ids():
 
 df = get_playlist_ids()
 df.head()
-start = 0
-end = 1000
+start = 40000
+end = 50000
 data = df.iloc[start:end]
 data.playlist_ids.progress_apply(get_playlist_tracks)

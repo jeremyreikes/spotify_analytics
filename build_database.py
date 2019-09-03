@@ -3,18 +3,15 @@ import numpy as np
 import warnings
 import sys
 from tqdm import tqdm
-from spotify_fetching import df
 tqdm.pandas()
 warnings.filterwarnings('ignore')
+import spacy
+nlp = spacy.load('en_core_web_sm')
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 import lyricsgenius
-import numpy as np
 import re
-from api_keys import genius_client_access_token
-from api_keys import spotify_client_id, spotify_client_secret
-client_id = spotify_client_id
-client_secret = spotify_client_secret
+from api_keys import spotify_client_id, spotify_client_secret, genius_client_access_token
 client_credentials_manager = SpotifyClientCredentials(client_id=spotify_client_id, client_secret=spotify_client_secret)
 from pymongo import MongoClient
 client = MongoClient()
@@ -22,8 +19,8 @@ db = client.spotify_db
 all_tracks = db.all_tracks
 parsed_playlists = db.parsed_playlists
 from time import sleep
-useless_features = ['type', 'uri', 'track_href', 'analysis_url', 'id']
 
+useless_features = ['type', 'uri', 'track_href', 'analysis_url', 'id']
 
 def get_track(tid):
     return all_tracks.find_one({'_id': tid})
@@ -33,7 +30,7 @@ def get_playlist(pid):
 
 def add_audio_features():
     all_tids = []
-    for track in all_tracks.find():
+    for track in all_tracks.find({'audio_features': {'$exists': False}}):
         all_tids.append(track['_id'])
     sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
     for i in tqdm(range(0,(len(all_tids) // 50) + 1)):
@@ -58,7 +55,7 @@ def add_audio_features():
 
 def add_name_and_artist():
     all_tids = []
-    for track in all_tracks.find():
+    for track in all_tracks.find({'name': {'$exists': False}, 'artist_id': {'$exists': False}}):
         all_tids.append(track['_id'])
     sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
     for i in tqdm(range(0,(len(all_tids) // 50) + 1)):
@@ -82,10 +79,10 @@ def add_name_and_artist():
             release_date = curr_track['album']['release_date']
             popularity = curr_track['popularity']
             all_tracks.find_and_modify({'_id': tid}, {'$set': {'name': name, 'artist_name': artist_name, 'artist_id': artist_id, 'release_date': release_date, 'popularity': popularity}})
-#
+
 def add_genres():
     all_tids = []
-    for track in all_tracks.find({'genres': {'$exists': False}, 'artist_id': {'$exists': False}}):
+    for track in all_tracks.find({'genres': {'$exists': False}, 'artist_id': {'$exists': True}}):
         tid = track['_id']
         artist_id = track['artist_id']
         all_tids.append((tid, artist_id))
@@ -109,12 +106,29 @@ def add_genres():
             genres = curr_artist['genres']
             all_tracks.find_and_modify({'_id': tids[index]}, {'$set': {'genres': genres}})
 
+def tokenize_playlists():
+    for playlist in parsed_playlists.find({'lemmas': {'$exists': False}}):
+        pid = playlist['_id']
+        doc = nlp(playlist['name'])
+        lemmas = list()
+        for token in doc:
+            if token.is_stop or not token.is_alpha:
+                continue
+            lemma = token.lemma_.strip().lower()
+            if lemma:
+                lemmas.append(lemma)
+        parsed_playlists.find_one_and_update({'_id': pid}, {'$set': {'lemmas': lemmas}})
+
+
+
     # do this shit
-def update_lyrics():
+def add_lyrics():
     genius = lyricsgenius.Genius(genius_client_access_token)
     genius.remove_section_headers = True
     genius.verbose = False
-    for track in all_tracks.find({'lyrics': {'$exists' : False}}):
+    for index, track in enumerate(all_tracks.find({'lyrics': {'$exists' : False}})):
+        if index == 50:
+            break
         try:
             tid = track['_id']
             track_name = track['name']
@@ -122,10 +136,10 @@ def update_lyrics():
             song = genius.search_song(track_name, artist_name)
             if song:
                 lyrics = song.lyrics
-                stripped = ' '.join(lyrics.split('\n'))
-                regex = re.compile('([\][])')
-                clean_lyrics = re.sub(regex, '', stripped)
-                all_tracks.find_and_modify({'_id': tid}, {'$set': {'lyrics': clean_lyrics}})
+                if lyrics:
+                    all_tracks.find_and_modify({'_id': tid}, {'$set': {'lyrics': lyrics}})
+        except:
+            print(f'Could not add lyrics for {tid}')
 
 
 
@@ -138,21 +152,27 @@ def update_lyrics():
 # print(db.command("collstats", "all_tracks"))
 # add_audio_features()
 # add_name_and_artist()
-all_tracks.find_one()
 
+# def build_database():
 add_audio_features()
 add_name_and_artist()
 add_genres()
 add_lyrics()
+tokenize_playlists()
 
-# all_tracks.drop()
-# parsed_playlists.drop()
-# build_database()
-# for index, track in enumerate(all_tracks.find()):
-#     if index == 50:
-#         break
-#     print(track)
 
+
+
+all_tracks.find_one({'_id': '2Fxmhks0bxGSBdJ92vM42m'})
+
+
+
+
+
+
+
+most
+most_tid
 '''
 schedule-
  twitter_scrape to get playlist names
@@ -165,3 +185,4 @@ schedule-
 
 
 '''
+# build_database()
