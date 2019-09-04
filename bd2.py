@@ -19,10 +19,6 @@ db = client.spotify_db
 all_tracks = db.all_tracks
 parsed_playlists = db.parsed_playlists
 from time import sleep
-from database_querying import get_playlist_word_counts, get_top_n_tracks
-import re
-
-
 
 useless_features = ['type', 'uri', 'track_href', 'analysis_url', 'id']
 
@@ -59,7 +55,7 @@ def update_audio_features():
 
 def update_name_and_artist():
     all_tids = []
-    for track in all_tracks.find({'name': {'$exists': False}, 'artist_id': {'$exists': False}}):
+    for track in all_tracks.find({'name': {'$exists': False}}):
         all_tids.append(track['_id'])
     sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
     for i in tqdm(range(0,(len(all_tids) // 50) + 1)):
@@ -91,8 +87,7 @@ def update_genres():
     for track in all_tracks.find({'genres': {'$exists': False}, 'artist_id': {'$exists': True}}):
         tid = track['_id']
         artist_id = track['artist_id']
-        if tid and artist_id:
-            all_tids.append((tid, artist_id))
+        all_tids.append((tid, artist_id))
     sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
     for i in tqdm(range(0,(len(all_tids) // 50) + 1)):
         offset = i*50
@@ -114,7 +109,8 @@ def update_genres():
             all_tracks.find_and_modify({'_id': tids[index]}, {'$set': {'genres': genres}})
 
 def lemmatize_playlists():
-    for playlist in tqdm(parsed_playlists.find({'lemmas': {'$exists': False}})):
+    #{'lemmas': {'$exists': False}}
+    for playlist in tqdm(parsed_playlists.find()):
         pid = playlist['_id']
         doc = nlp(playlist['name'])
         lemmas = list()
@@ -140,20 +136,15 @@ def update_lyrics():
             if song:
                 lyrics = song.lyrics
                 if lyrics:
-                    lyrics = lyrics.replace('\n', '. ')
-                    regex = re.compile('([\][])')
-                    lyrics = re.sub(regex, '', lyrics)
                     all_tracks.find_and_modify({'_id': tid}, {'$set': {'lyrics': lyrics}})
         except:
             all_tracks.find_and_modify({'_id': tid}, {'$set': {'lyrics': None}})
 
 
+
 # def build_database():
 # update_audio_features()
-# update_name_and_artist()
-# update_genres()
-# update_lyrics()
-# lemmatize_playlists()
-# build_database()
-top_500 = get_top_n_tracks(500)
+update_name_and_artist()
+update_genres()
 update_lyrics()
+lemmatize_playlists()
