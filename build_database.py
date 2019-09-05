@@ -19,18 +19,9 @@ db = client.spotify_db
 all_tracks = db.all_tracks
 parsed_playlists = db.parsed_playlists
 from time import sleep
-from database_querying import get_playlist_word_counts, get_top_n_tracks
 import re
 
-
-
 useless_features = ['type', 'uri', 'track_href', 'analysis_url', 'id']
-
-def get_track(tid):
-    return all_tracks.find_one({'_id': tid})
-
-def get_playlist(pid):
-    return parsed_playlists.find_one({'_id', pid})
 
 def update_audio_features():
     all_tids = []
@@ -48,13 +39,14 @@ def update_audio_features():
         except:
             sleep(30)
             all_audio_features = sp.audio_features(curr_ids)
-        for curr_features in all_audio_features:
+        for index, curr_features in enumerate(all_audio_features):
             if not curr_features:
+                all_tracks.find_one_and_update({'_id': curr_ids[index]}, {'$set': {'audio_features': None}})
                 continue
             tid = curr_features['id']
             for feature in useless_features:
                 del curr_features[feature]
-            all_tracks.find_and_modify({'_id': tid}, {'$set': {'audio_features': curr_features}})
+            all_tracks.find_one_and_update({'_id': tid}, {'$set': {'audio_features': curr_features}})
 
 
 def update_name_and_artist():
@@ -82,10 +74,9 @@ def update_name_and_artist():
             artist_name = curr_track['album']['artists'][0]['name']
             release_date = curr_track['album']['release_date']
             popularity = curr_track['popularity']
-            all_tracks.find_and_modify({'_id': tid}, {'$set': {'name': name, 'artist_name': artist_name, 'artist_id': artist_id, 'release_date': release_date, 'popularity': popularity}})
+            all_tracks.find_one_and_update({'_id': tid}, {'$set': {'name': name, 'artist_name': artist_name, 'artist_id': artist_id, 'release_date': release_date, 'popularity': popularity}})
 
 
-# BEFORE ADDING GENRES, MAKE SURE YOU'VE ADDED ARTIST NAMES FIRST FROM add_name_and_artist
 def update_genres():
     all_tids = []
     for track in all_tracks.find({'genres': {'$exists': False}, 'artist_id': {'$exists': True}}):
@@ -111,27 +102,14 @@ def update_genres():
             if not curr_artist:
                 continue
             genres = curr_artist['genres']
-            all_tracks.find_and_modify({'_id': tids[index]}, {'$set': {'genres': genres}})
-
-def lemmatize_playlists():
-    for playlist in tqdm(parsed_playlists.find({'lemmas': {'$exists': False}})):
-        pid = playlist['_id']
-        doc = nlp(playlist['name'])
-        lemmas = list()
-        for token in doc:
-            if token.is_stop or not token.is_alpha:
-                continue
-            lemma = token.lemma_.strip().lower()
-            if lemma:
-                lemmas.append(lemma)
-        parsed_playlists.find_one_and_update({'_id': pid}, {'$set': {'lemmas': lemmas}})
+            all_tracks.find_one_and_update({'_id': tids[index]}, {'$set': {'genres': genres}})
 
     # do this shit
 def update_lyrics():
     genius = lyricsgenius.Genius(genius_client_access_token)
     genius.remove_section_headers = True
     genius.verbose = False
-    for track in all_tracks.find({'lyrics': {'$exists' : False}}):
+    for track in tqdm(all_tracks.find({'lyrics': {'$exists' : False}})):
         try:
             tid = track['_id']
             track_name = track['name']
@@ -143,17 +121,33 @@ def update_lyrics():
                     lyrics = lyrics.replace('\n', '. ')
                     regex = re.compile('([\][])')
                     lyrics = re.sub(regex, '', lyrics)
-                    all_tracks.find_and_modify({'_id': tid}, {'$set': {'lyrics': lyrics}})
+                    lyrics = lyrics.replace('. .', '.')
+                    all_tracks.find_one_and_update({'_id': tid}, {'$set': {'lyrics': lyrics}})
         except:
-            all_tracks.find_and_modify({'_id': tid}, {'$set': {'lyrics': None}})
+            all_tracks.find_one_and_update({'_id': tid}, {'$set': {'lyrics': None}})
 
 
 # def build_database():
-# update_audio_features()
-# update_name_and_artist()
+
+# update_lyrics()
+# build_database()
+# top_10000 = get_top_n_tids(10000)
+# update_lyrics()
+#
+# def update_database():
+update_audio_features()
+update_name_and_artist()
+# lemmatize_playlists()
 # update_genres()
 # update_lyrics()
-# lemmatize_playlists()
-# build_database()
-top_500 = get_top_n_tracks(500)
-update_lyrics()
+
+
+'''
+DEPENDENCIES:
+update_audio_features - none
+update_name_and_artist - none
+update_genres - must do update_name_and_artist before
+update_lyrics - must do update_name_and_artist before
+
+
+'''
