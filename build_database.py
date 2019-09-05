@@ -30,23 +30,29 @@ def update_audio_features():
     sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
     for i in tqdm(range(0,(len(all_tids) // 50) + 1)):
         offset = i*50
-        try:
-            curr_ids = all_tids[offset:offset+50]
-        except:
-            curr_ids = all_tids[offset:]
-        try:
-            all_audio_features = sp.audio_features(curr_ids)
-        except:
-            sleep(30)
-            all_audio_features = sp.audio_features(curr_ids)
-        for index, curr_features in enumerate(all_audio_features):
+        curr_ids = get_curr_ids(all_tids, offset)
+        for _ in range(5):
+            try:
+                audio_features = sp.audio_features(curr_ids)
+                continue
+            except:
+                sleep(2)
+                audio_features = list()
+        for index, curr_features in enumerate(audio_features):
             if not curr_features:
                 all_tracks.find_one_and_update({'_id': curr_ids[index]}, {'$set': {'audio_features': None}})
-                continue
-            tid = curr_features['id']
-            for feature in useless_features:
-                del curr_features[feature]
-            all_tracks.find_one_and_update({'_id': tid}, {'$set': {'audio_features': curr_features}})
+            else:
+                for feature in useless_features:
+                    del curr_features[feature]
+                all_tracks.find_one_and_update({'_id': curr_ids[index]}, {'$set': {'audio_features': curr_features}})
+
+
+def get_curr_ids(all_tids, offset):
+    try:
+        curr_ids = all_tids[offset:offset+50]
+    except:
+        curr_ids = all_tids[offset:]
+    return curr_ids
 
 
 def update_name_and_artist():
@@ -56,15 +62,14 @@ def update_name_and_artist():
     sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
     for i in tqdm(range(0,(len(all_tids) // 50) + 1)):
         offset = i*50
-        try:
-            curr_ids = all_tids[offset:offset+50]
-        except:
-            curr_ids = all_tids[offset:]
-        try:
-            raw_tracks = sp.tracks(curr_ids)['tracks']
-        except:
-            sleep(30)
-            raw_tracks = sp.tracks(curr_ids)['tracks']
+        curr_ids = get_curr_ids(all_tids, offset)
+        for _ in range(5):
+            try:
+                raw_tracks = sp.tracks(curr_ids)['tracks']
+                continue
+            except:
+                sleep(2)
+                raw_tracks = list()
         for curr_track in raw_tracks:
             if not curr_track:
                 continue
@@ -82,22 +87,21 @@ def update_genres():
     for track in all_tracks.find({'genres': {'$exists': False}, 'artist_id': {'$exists': True}}):
         tid = track['_id']
         artist_id = track['artist_id']
-        if tid and artist_id:
+        if artist_id:
             all_tids.append((tid, artist_id))
     sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
     for i in tqdm(range(0,(len(all_tids) // 50) + 1)):
         offset = i*50
-        try:
-            curr_ids = all_tids[offset:offset+50]
-        except:
-            curr_ids = all_tids[offset:]
+        curr_ids = get_curr_ids(all_tids, offset)
         tids = [curr_id[0] for curr_id in curr_ids]
         artist_ids = [curr_id[1] for curr_id in curr_ids]
-        try:
-            curr_artists = sp.artists(artist_ids)['artists']
-        except:
-            sleep(30)
-            curr_artists = sp.artists(artist_ids)['artists']
+        for _ in range(5):
+            try:
+                curr_artists = sp.artists(artist_ids)['artists']
+                continue
+            except:
+                sleep(2)
+                curr_artists = list()
         for index, curr_artist in enumerate(curr_artists):
             if not curr_artist:
                 continue
@@ -109,22 +113,21 @@ def update_lyrics():
     genius = lyricsgenius.Genius(genius_client_access_token)
     genius.remove_section_headers = True
     genius.verbose = False
-    for track in tqdm(all_tracks.find({'lyrics': {'$exists' : False}})):
+    regex = re.compile('([\][])')
+    for track in tqdm(all_tracks.find( {'lyrics': {'$exists' : False}, 'name': {'$exists': True}, 'artist_name': {'$exists': True}} )):
+        tid = track['_id']
+        track_name = track['name']
+        artist_name = track['artist_name']
         try:
-            tid = track['_id']
-            track_name = track['name']
-            artist_name = track['artist_name']
             song = genius.search_song(track_name, artist_name)
-            if song:
-                lyrics = song.lyrics
-                if lyrics:
-                    lyrics = lyrics.replace('\n', '. ')
-                    regex = re.compile('([\][])')
-                    lyrics = re.sub(regex, '', lyrics)
-                    lyrics = lyrics.replace('. .', '.')
-                    all_tracks.find_one_and_update({'_id': tid}, {'$set': {'lyrics': lyrics}})
+            lyrics = song.lyrics
+            lyrics = lyrics.replace('\n', '. ')
+            lyrics = re.sub(regex, '', lyrics)
+            lyrics = lyrics.replace('. .', '.')
+            all_tracks.find_one_and_update({'_id': tid}, {'$set': {'lyrics': lyrics}})
         except:
             all_tracks.find_one_and_update({'_id': tid}, {'$set': {'lyrics': None}})
+
 
 
 # def build_database():
@@ -137,7 +140,6 @@ def update_lyrics():
 # def update_database():
 update_audio_features()
 update_name_and_artist()
-# lemmatize_playlists()
 # update_genres()
 # update_lyrics()
 

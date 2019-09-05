@@ -78,8 +78,8 @@ def add_playlist(playlist_id):
         return None
     user_id = playlist['owner']['id']
     total_tracks = playlist['tracks']['total']
-    if total_tracks > 700 or total_tracks < 2 or not tids:
-        print(f'Not adding {playlist_id} to database')
+    if total_tracks > 700 or total_tracks < 3:
+        print(f'Too many (or few!) songs.  Not adding {playlist_id} to database')
         return None
     all_tids = get_tids_from_playlist(playlist)
     additional_pages = total_tracks // 100
@@ -88,10 +88,10 @@ def add_playlist(playlist_id):
     for i in range(additional_pages):
         try:
             playlist = sp.user_playlist_tracks(user_id, playlist_id=playlist_id, offset = (i+1)*100)
-            tids = get_tids_from_playlist_tracks(playlist)
-            all_tids.extend(tids)
+            curr_tids = get_tids_from_playlist_tracks(playlist)
+            all_tids.extend(curr_tids)
         except:
-            continue
+            print('Pagination Error')
     insert_tracks(all_tids, playlist_id)
     name = playlist.get('name', '')
     description = playlist.get('description', '')
