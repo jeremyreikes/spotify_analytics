@@ -62,16 +62,13 @@ def insert_tracks(tids, playlist_id):
             all_tracks.update_one({'_id': tid}, {'$push': {'playlists': playlist_id}})
         else:
             new_track = initialize_track(tid, playlist_id)
-            # try:
             all_tracks.insert_one(new_track)
-            # except:
-                # all_tracks.update_one({'_id': tid}, {'$push': {'playlists': playlist_id}})
 
 @timeout(10)
 def add_playlist(playlist_id):
     if parsed_playlists.count_documents({'_id': playlist_id}, limit = 1) != 0:
-        print(f'{playlist_id} already parsed')
-        return None
+        # print(f'{playlist_id} already parsed')
+        return parsed_playlists.find_one({'_id': playlist_id})['tids']
     try:
         playlist = sp.user_playlist(playlist_id=playlist_id, user=None)
     except:
@@ -79,7 +76,7 @@ def add_playlist(playlist_id):
     user_id = playlist['owner']['id']
     total_tracks = playlist['tracks']['total']
     if total_tracks > 700 or total_tracks < 3:
-        print(f'Too many (or few!) songs.  Not adding {playlist_id} to database')
+        # print(f'Too many (or few!) songs.  Not adding {playlist_id} to database')
         return None
     all_tids = get_tids_from_playlist(playlist)
     additional_pages = total_tracks // 100
@@ -98,6 +95,7 @@ def add_playlist(playlist_id):
     lemmas = lemmatize_playlist(name)
     parsed_playlists.insert_one({'_id': playlist_id, 'tids': all_tids, 'description': description,
                              'name': name, 'lemmas': lemmas, 'user_id': user_id})
+    return all_tids
 
 # df = get_playlist_ids()
 # start = 30000

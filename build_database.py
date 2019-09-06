@@ -23,9 +23,13 @@ import re
 
 useless_features = ['type', 'uri', 'track_href', 'analysis_url', 'id']
 
-def update_audio_features():
-    all_tids = []
-    for track in all_tracks.find({'audio_features': {'$exists': False}}):
+def update_audio_features(subset=None):
+    if subset:
+        cursor = all_tracks.find({'_id': {'$in': subset}, 'audio_features': {'$exists': False}})
+    else:
+        cursor = all_tracks.find({'audio_features': {'$exists': False}})
+    all_tids = list()
+    for track in cursor:
         all_tids.append(track['_id'])
     sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
     for i in tqdm(range(0,(len(all_tids) // 50) + 1)):
@@ -40,7 +44,10 @@ def update_audio_features():
                 audio_features = list()
         for index, curr_features in enumerate(audio_features):
             if not curr_features:
-                all_tracks.find_one_and_update({'_id': curr_ids[index]}, {'$set': {'audio_features': None}})
+                try:
+                    all_tracks.find_one_and_update({'_id': curr_ids[index]}, {'$set': {'audio_features': None}})
+                except:
+                    print('')
             else:
                 for feature in useless_features:
                     del curr_features[feature]
@@ -55,9 +62,13 @@ def get_curr_ids(all_tids, offset):
     return curr_ids
 
 
-def update_name_and_artist():
-    all_tids = []
-    for track in all_tracks.find({'name': {'$exists': False}, 'artist_id': {'$exists': False}}):
+def update_name_and_artist(subset=None):
+    if subset:
+        cursor = all_tracks.find({'_id': {'$in': subset}, 'name': {'$exists': False}, 'artist_id': {'$exists': False}})
+    else:
+        cursor = all_tracks.find({'name': {'$exists': False}, 'artist_id': {'$exists': False}})
+    all_tids = list()
+    for track in cursor:
         all_tids.append(track['_id'])
     sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
     for i in tqdm(range(0,(len(all_tids) // 50) + 1)):
@@ -82,9 +93,13 @@ def update_name_and_artist():
             all_tracks.find_one_and_update({'_id': tid}, {'$set': {'name': name, 'artist_name': artist_name, 'artist_id': artist_id, 'release_date': release_date, 'popularity': popularity}})
 
 
-def update_genres():
-    all_tids = []
-    for track in all_tracks.find({'genres': {'$exists': False}, 'artist_id': {'$exists': True}}):
+def update_genres(subset=None):
+    if subset:
+        cursor = all_tracks.find({'_id': {'$in': subset}, 'genres': {'$exists': False}, 'artist_id': {'$exists': True}})
+    else:
+        cursor =  all_tracks.find({'genres': {'$exists': False}, 'artist_id': {'$exists': True}})
+    all_tids = list()
+    for track in cursor:
         tid = track['_id']
         artist_id = track['artist_id']
         if artist_id:
@@ -104,17 +119,22 @@ def update_genres():
                 curr_artists = list()
         for index, curr_artist in enumerate(curr_artists):
             if not curr_artist:
-                continue
-            genres = curr_artist['genres']
-            all_tracks.find_one_and_update({'_id': tids[index]}, {'$set': {'genres': genres}})
+                all_tracks.find_one_and_update({'_id': tids[index]}, {'$set': {'genres': None}})
+            else:
+                genres = curr_artist['genres']
+                all_tracks.find_one_and_update({'_id': tids[index]}, {'$set': {'genres': genres}})
 
     # do this shit
-def update_lyrics():
+def update_lyrics(subset = None):
     genius = lyricsgenius.Genius(genius_client_access_token)
     genius.remove_section_headers = True
     genius.verbose = False
     regex = re.compile('([\][])')
-    for track in tqdm(all_tracks.find( {'lyrics': {'$exists' : False}, 'name': {'$exists': True}, 'artist_name': {'$exists': True}} )):
+    if subset:
+        cursor = all_tracks.find({'_id': {'$in': subset}, 'lyrics': {'$exists' : False}, 'name': {'$exists': True}, 'artist_name': {'$exists': True}})
+    else:
+        cursor = all_tracks.find({'lyrics': {'$exists' : False}, 'name': {'$exists': True}, 'artist_name': {'$exists': True}})
+    for track in tqdm(cursor):
         tid = track['_id']
         track_name = track['name']
         artist_name = track['artist_name']
@@ -140,7 +160,7 @@ def update_lyrics():
 # def update_database():
 # update_audio_features()
 # update_name_and_artist()
-update_genres()
+# update_genres()
 # update_lyrics()
 
 

@@ -20,18 +20,16 @@ import numpy as np
 from get_tids import *
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 from parse_playlists import add_playlist
-from update_playlist_data import update_genres, update_lyrics, update_audio_features, update_name_and_artist
+from build_database import update_genres, update_lyrics, update_audio_features, update_name_and_artist
 
 class Playlist:
     def __init__(self, playlist_id, get_lyrics=True):
-        add_playlist(playlist_id)
-        self.tids = dbq.get_playlist_tids(playlist_id)
+        self.tids = add_playlist(playlist_id)
         update_name_and_artist(self.tids)
         update_audio_features(self.tids)
         update_genres(self.tids)
         if get_lyrics:
             update_lyrics(self.tids)
-
         self.tracks = dbq.get_tracks(self.tids)
         self.data = self.convert_tracks_to_df(self.tracks)
         # also has playlist_word_counts, which is a dict with
@@ -122,19 +120,24 @@ class Playlist:
 
         self.playlist_word_counts = counts
         df = pd.DataFrame(parsed_tracks).set_index('_id')
+        # add song to the database, but don't include in recommendations
+        # df = df[df.playlists.count != 1]
         return df
 
     def get_tweet_sentiment(self, track):
         analyser = SentimentIntensityAnalyzer()
         pass
 
-playlist = Playlist('5d4FPOzRUnPgoq1TKigtKm')
+playlist = Playlist('37i9dQZEVXbLRQDuF5jeBp')
 # ASK IF YOU WANT T
-playlist.rank_by_playlist_word_frequencies('sex')
+playlist.rank_by_playlist_word_frequencies('summer')
+# #
+playlist.rank_by_description_similarity('I am sad i want to die')
+playlist.rank_by_lyric_similarity('love you sweet baby come now together')
 
-playlist.rank_by_description_similarity('best music')
-playlist.rank_by_lyric_similarity('baby i love you')
-playlist.data.lyrics
+playlist.data.iloc[0].playlists
+
+# playlist.data.lyrics
 '''
 syonym matching
 cosine similarity
