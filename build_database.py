@@ -23,10 +23,13 @@ import re
 
 useless_features = ['type', 'uri', 'track_href', 'analysis_url', 'id']
 
-def update_audio_features():
-    all_tids = []
-    for track in all_tracks.find({'audio_features': {'$exists': False}}):
-        all_tids.append(track['_id'])
+def update_audio_features(tids = None):
+    if not tids:
+        all_tids = []
+        for track in all_tracks.find({'audio_features': {'$exists': False}}):
+            all_tids.append(track['_id'])
+    else:
+        all_tids = tids
     sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
     for i in tqdm(range(0,(len(all_tids) // 50) + 1)):
         offset = i*50
@@ -40,11 +43,11 @@ def update_audio_features():
                 audio_features = list()
         for index, curr_features in enumerate(audio_features):
             if not curr_features:
-                all_tracks.find_one_and_update({'_id': curr_ids[index]}, {'$set': {'audio_features': None}})
+                all_tracks.find_one_and_update({'_id': curr_ids[index]}, {'$set': {'audio_features': None}}, upsert=True)
             else:
                 for feature in useless_features:
                     del curr_features[feature]
-                all_tracks.find_one_and_update({'_id': curr_ids[index]}, {'$set': {'audio_features': curr_features}})
+                all_tracks.find_one_and_update({'_id': curr_ids[index]}, {'$set': {'audio_features': curr_features}}, upsert=True)
 
 
 def get_curr_ids(all_tids, offset):
@@ -55,10 +58,13 @@ def get_curr_ids(all_tids, offset):
     return curr_ids
 
 
-def update_name_and_artist():
-    all_tids = []
-    for track in all_tracks.find({'name': {'$exists': False}, 'artist_id': {'$exists': False}}):
-        all_tids.append(track['_id'])
+def update_name_and_artist(tids = None):
+    if not tids:
+        all_tids = []
+        for track in all_tracks.find({'name': {'$exists': False}, 'artist_id': {'$exists': False}}):
+            all_tids.append(track['_id'])
+    else:
+        all_tids = tids
     sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
     for i in tqdm(range(0,(len(all_tids) // 50) + 1)):
         offset = i*50
@@ -79,7 +85,7 @@ def update_name_and_artist():
             artist_name = curr_track['album']['artists'][0]['name']
             release_date = curr_track['album']['release_date']
             popularity = curr_track['popularity']
-            all_tracks.find_one_and_update({'_id': tid}, {'$set': {'name': name, 'artist_name': artist_name, 'artist_id': artist_id, 'release_date': release_date, 'popularity': popularity}})
+            all_tracks.find_one_and_update({'_id': tid}, {'$set': {'name': name, 'artist_name': artist_name, 'artist_id': artist_id, 'release_date': release_date, 'popularity': popularity}}, upsert=True)
 
 
 def update_genres():
@@ -138,9 +144,9 @@ def update_lyrics():
 # update_lyrics()
 #
 # def update_database():
-update_audio_features()
-update_name_and_artist()
-# update_genres()
+# update_audio_features()
+# update_name_and_artist()
+update_genres()
 # update_lyrics()
 
 

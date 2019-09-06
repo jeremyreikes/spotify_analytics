@@ -17,7 +17,6 @@ client = MongoClient()
 db = client.spotify_db
 all_tracks = db.all_tracks
 parsed_playlists = db.parsed_playlists
-from get_tids import *
 
 import spacy
 nlp = spacy.load('en_core_web_sm')
@@ -59,48 +58,45 @@ def insert_tracks(tids, playlist_id):
         if not tid:
             continue
         if all_tracks.count_documents({'_id': tid}, limit = 1) != 0:
-            all_tracks.update_one({'_id': tid}, {'$push': {'playlists': playlist_id}})
+            all_tracks.update({'_id': tid}, {'$push': {'playlists': playlist_id}})
         else:
             new_track = initialize_track(tid, playlist_id)
-            # try:
-            all_tracks.insert_one(new_track)
-            # except:
-                # all_tracks.update_one({'_id': tid}, {'$push': {'playlists': playlist_id}})
+            all_tracks.insert(new_track)
 
 @timeout(10)
 def add_playlist(playlist_id):
     if parsed_playlists.count_documents({'_id': playlist_id}, limit = 1) != 0:
         print(f'{playlist_id} already parsed')
         return None
-    try:
-        playlist = sp.user_playlist(playlist_id=playlist_id, user=None)
-    except:
+    all_tids = list()
+    playlist = sp.user_playlist(playlist_id=playlist_id, user=None)
+    if not playlist:
         return None
     user_id = playlist['owner']['id']
     total_tracks = playlist['tracks']['total']
-    if total_tracks > 700 or total_tracks < 3:
-        print(f'Too many (or few!) songs.  Not adding {playlist_id} to database')
+    if total_tracks > 700 or total_tracks == 0:
+        print(f'Playlist is too long or empty, length - {total_tracks}')
         return None
-    all_tids = get_tids_from_playlist(playlist)
+    tids = [track['track']['id'] for track in playlist['tracks']['items']]
+    all_tids.extend(tids)
     additional_pages = total_tracks // 100
     if total_tracks % 100 == 0:
         additional_pages -= 1
     for i in range(additional_pages):
-        try:
-            playlist = sp.user_playlist_tracks(user_id, playlist_id=playlist_id, offset = (i+1)*100)
-            curr_tids = get_tids_from_playlist_tracks(playlist)
-            all_tids.extend(curr_tids)
-        except:
-            print('Pagination Error')
+        playlist = sp.user_playlist_tracks(playlist_id=playlist_id, user=None, offset = (i+1)*100)
+        tids = [track['track']['id'] for track in playlist['items']]
+        all_tids.extend(tids)
     insert_tracks(all_tids, playlist_id)
     name = playlist.get('name', '')
     description = playlist.get('description', '')
     lemmas = lemmatize_playlist(name)
-    parsed_playlists.insert_one({'_id': playlist_id, 'tids': all_tids, 'description': description,
+    parsed_playlists.insert({'_id': playlist_id, 'tids': all_tids, 'description': description,
                              'name': name, 'lemmas': lemmas, 'user_id': user_id})
 
 df = get_playlist_ids()
-start = 30000
-end = 50000
+start = 0
+end = 1000
 data = df.iloc[start:end]
+all_tracks.drop()
+parsed_playlists.drop()
 data.playlist_ids.progress_apply(add_playlist)
