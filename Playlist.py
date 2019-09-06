@@ -19,18 +19,24 @@ from textblob import TextBlob
 import numpy as np
 from get_tids import *
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+from parse_playlists import add_playlist
+from update_playlist_data import update_genres, update_lyrics, update_audio_features, update_name_and_artist
 
 class Playlist:
-    def __init__(self, playlist_id):
-        self.tids = self.fetch_playlist_tids(playlist_id)
+    def __init__(self, playlist_id, get_lyrics=True):
+        add_playlist(playlist_id)
+        self.tids = dbq.get_playlist_tids(playlist_id)
+        update_name_and_artist(self.tids)
+        update_audio_features(self.tids)
+        update_genres(self.tids)
+        if get_lyrics:
+            update_lyrics(self.tids)
+
         self.tracks = dbq.get_tracks(self.tids)
         self.data = self.convert_tracks_to_df(self.tracks)
         # also has playlist_word_counts, which is a dict with
         # TID: {WORD1: freq, WORD2: freq, ...}
 
-
-
-    def 
     def fetch_playlist_tids(self, playlist_id):
         playlist = sp.user_playlist(playlist_id=playlist_id, user=None)
         total_tracks = playlist['tracks']['total']
@@ -81,9 +87,17 @@ class Playlist:
         self.data['description_similarity'] = self.data.descriptions.apply(lambda x: self.get_description_similarity(x, target))
         return self.data.sort_values(by='description_similarity', ascending=False)
 
+
     def rank_by_lyric_similarity(self, lyrics):
         target = nlp(lyrics)
-        self.data['lyrical_similarity'] = self.data.lyrics.apply(lambda x: nlp(x).similarity(target))
+        lyrical_similarities = list()
+        for curr_lyrics in list(self.data.lyrics):
+            try:
+                curr_similarity = nlp(curr_lyrics).similarity(target)
+                lyrical_similarities.append(curr_similarity)
+            except:
+                lyrical_similarities.append(None)
+        self.data['lyrical_similarity'] = lyrical_similarities
         return self.data.sort_values(by='lyrical_similarity', ascending=False)
 
     def convert_tracks_to_df(self, tracks):
@@ -107,18 +121,20 @@ class Playlist:
             parsed_tracks.append(curr_track)
 
         self.playlist_word_counts = counts
-        return pd.DataFrame(parsed_tracks).set_index('_id')
+        df = pd.DataFrame(parsed_tracks).set_index('_id')
+        return df
 
     def get_tweet_sentiment(self, track):
         analyser = SentimentIntensityAnalyzer()
         pass
 
 playlist = Playlist('5d4FPOzRUnPgoq1TKigtKm')
-# playlist.data
-playlist.rank_by_playlist_word_frequencies('summer is here')
+# ASK IF YOU WANT T
+playlist.rank_by_playlist_word_frequencies('sex')
+
 playlist.rank_by_description_similarity('best music')
-playlist.rank_by_lyric_similarity('i am the most fire rapper in th entire world')
-# playlist.data
+playlist.rank_by_lyric_similarity('baby i love you')
+playlist.data.lyrics
 '''
 syonym matching
 cosine similarity

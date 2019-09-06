@@ -99,8 +99,8 @@ def add_playlist(playlist_id):
     parsed_playlists.insert_one({'_id': playlist_id, 'tids': all_tids, 'description': description,
                              'name': name, 'lemmas': lemmas, 'user_id': user_id})
 
-df = get_playlist_ids()
-start = 30000
-end = 50000
-data = df.iloc[start:end]
-data.playlist_ids.progress_apply(add_playlist)
+# df = get_playlist_ids()
+# start = 30000
+# end = 50000
+# data = df.iloc[start:end]
+# data.playlist_ids.progress_apply(add_playlist)
