@@ -7,7 +7,7 @@ import pickle
 import tqdm
 from collections import Counter, defaultdict
 import spacy
-nlp = spacy.load('en_core_web_lg')
+nlp = spacy.load('en_core_web_sm')
 warnings.filterwarnings('ignore')
 import time
 from api_keys import spotify_client_id, spotify_client_secret
@@ -24,7 +24,7 @@ from build_database import update_genres, update_lyrics, update_audio_features, 
 
 class Playlist:
     def __init__(self, playlist_id, get_lyrics=True):
-        self.tids = add_playlist(playlist_id)
+        self.tids = add_playlist(playlist_id, user=True)
         update_name_and_artist(self.tids)
         update_audio_features(self.tids)
         update_genres(self.tids)
@@ -40,7 +40,6 @@ class Playlist:
         total_tracks = playlist['tracks']['total']
         all_tids = get_tids_from_playlist(playlist)
         if total_tracks == 0 or not all_tids:
-            print(f'Unable to parse {playlist_id}')
             return None
         additional_pages = total_tracks // 100
         if total_tracks % 100 == 0:
@@ -51,19 +50,6 @@ class Playlist:
             all_tids.append(tids)
         return all_tids
 
-    def rank_by_playlist_word_frequencies(self, words):
-        doc = nlp(words)
-        for tid, track_counts in self.playlist_word_counts.items():
-            freqs = []
-            for token in doc:
-                if token.is_stop or not token.is_alpha:
-                    continue
-                lemma =  token.lemma_.strip().lower()
-                freqs.append(track_counts.get(lemma, 0))
-            avg_freq = np.mean(freqs)
-            self.data.loc[tid, 'playlist_word_frequency'] = avg_freq
-        return self.data.sort_values(by='playlist_word_frequency', ascending=False)
-
     def get_track_descriptions(self, track):
         descriptions = []
         for pid in track['playlists']:
@@ -72,34 +58,9 @@ class Playlist:
                 descriptions.append(description)
         return descriptions
 
-    def get_description_similarity(self, descriptions, target):
-        similarities = list()
-        for description in descriptions:
-            doc = nlp(description)
-            similarity = doc.similarity(target)
-            similarities.append(similarity)
-        return np.mean(similarities)
-
-    def rank_by_description_similarity(self, description):
-        target = nlp(description)
-        self.data['description_similarity'] = self.data.descriptions.apply(lambda x: self.get_description_similarity(x, target))
-        return self.data.sort_values(by='description_similarity', ascending=False)
-
-
-    def rank_by_lyric_similarity(self, lyrics):
-        target = nlp(lyrics)
-        lyrical_similarities = list()
-        for curr_lyrics in list(self.data.lyrics):
-            try:
-                curr_similarity = nlp(curr_lyrics).similarity(target)
-                lyrical_similarities.append(curr_similarity)
-            except:
-                lyrical_similarities.append(None)
-        self.data['lyrical_similarity'] = lyrical_similarities
-        return self.data.sort_values(by='lyrical_similarity', ascending=False)
-
     def convert_tracks_to_df(self, tracks):
         counts = defaultdict(Counter)
+        descriptions = dict()
         parsed_tracks = list()
         for track in tracks:
             curr_track = dict()
@@ -110,15 +71,16 @@ class Playlist:
             if audio_features:
                 for key, val in audio_features.items():
                     curr_track[key] = val
-            descriptions = self.get_track_descriptions(track)
-            curr_track['descriptions'] = descriptions
+            curr_descriptions = self.get_track_descriptions(track)
+            descriptions[track['_id']] = curr_descriptions
             try:
-                counts[track['_id']] = dbq.get_playlist_word_counts(track['_id'])
+                counts[track['_id']] = dbq.get_playlist_word_frequencies(track['_id'])
             except:
                 counts[track['_id']] = 0
             parsed_tracks.append(curr_track)
 
-        self.playlist_word_counts = counts
+        self.playlist_word_frequencies = counts
+        self.playlist_descriptions = descriptions
         df = pd.DataFrame(parsed_tracks).set_index('_id')
         # add song to the database, but don't include in recommendations
         # df = df[df.playlists.count != 1]
@@ -128,17 +90,20 @@ class Playlist:
         analyser = SentimentIntensityAnalyzer()
         pass
 
-playlist = Playlist('37i9dQZEVXbLRQDuF5jeBp')
-# ASK IF YOU WANT T
-playlist.rank_by_playlist_word_frequencies('summer')
-# #
-playlist.rank_by_description_similarity('I am sad i want to die')
-playlist.rank_by_lyric_similarity('love you sweet baby come now together')
+playlist = Playlist('1dvzjYpRym2vOwcF8YOd7h', get_lyrics=False)
 
-playlist.data.iloc[0].playlists
+# parsed_playlists.find_one()
+# ASK IF YOU WANT T
+# playlist.score_playlist_word_frequencies('sleep')
+ # playlist.rank_by_description_similarity('I am sad i want to die')
+# playlist.rank_by_lyric_similarity('bad guy')
+#
+#
+# playlist.data.iloc[0].playlists
 
 # playlist.data.lyrics
 '''
+it's adding a playlist to a songs playlists field, but that playlist is not being entered into parsed playlits
 syonym matching
 cosine similarity
 analyze lyrics -- sentiment matching.  if search term matches onf of sentiment, 0
