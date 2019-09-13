@@ -21,7 +21,6 @@ from get_tids import *
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 from parse_playlists import add_playlist
 from build_database import update_genres, update_lyrics, update_audio_features, update_name_and_artist
-
 class Playlist:
     def __init__(self, playlist_id, get_lyrics=True):
         self.tids = add_playlist(playlist_id, user=True)
@@ -86,12 +85,8 @@ class Playlist:
         # df = df[df.playlists.count != 1]
         return df
 
-    def get_tweet_sentiment(self, track):
-        analyser = SentimentIntensityAnalyzer()
-        pass
 
-playlist = Playlist('1dvzjYpRym2vOwcF8YOd7h', get_lyrics=False)
-
+# playlist = Playlist('0BYYlB7IgauqGfa34Zy7Pv', get_lyrics=False)
 # parsed_playlists.find_one()
 # ASK IF YOU WANT T
 # playlist.score_playlist_word_frequencies('sleep')

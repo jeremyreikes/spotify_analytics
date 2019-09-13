@@ -40,13 +40,12 @@ def update_audio_features(subset=None):
         all_tids.append(track['_id'])
     sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
     for i in tqdm(range(0,(len(all_tids) // 50) + 1)):
-        print('updating audi featurest')
         offset = i*50
         curr_ids = get_curr_ids(all_tids, offset)
         for _ in range(5):
             try:
                 audio_features = sp.audio_features(curr_ids)
-                continue
+                break
             except:
                 sleep(.1)
                 audio_features = list()
@@ -72,13 +71,12 @@ def update_name_and_artist(subset=None):
         all_tids.append(track['_id'])
     sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
     for i in tqdm(range(0,(len(all_tids) // 50) + 1)):
-        print('updating name annd artist')
         offset = i*50
         curr_ids = get_curr_ids(all_tids, offset)
         for _ in range(5):
             try:
                 raw_tracks = sp.tracks(curr_ids)['tracks']
-                continue
+                break
             except:
                 print('sleeping')
                 sleep(.1)
@@ -116,7 +114,7 @@ def update_genres(subset=None):
         for _ in range(5):
             try:
                 curr_artists = sp.artists(artist_ids)['artists']
-                continue
+                break
             except:
                 sleep(.1)
                 curr_artists = list()
@@ -160,7 +158,7 @@ def update_lyrics(subset = None):
 # top_10000 = get_top_n_tids(10000)
 # update_lyrics()
 # def update_database():
-# update_audio_features()
+update_audio_features()
 # update_name_and_artist()
 # update_genres()
 # update_lyrics()

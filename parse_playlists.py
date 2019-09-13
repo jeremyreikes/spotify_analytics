@@ -16,6 +16,7 @@ from pymongo import MongoClient
 client = MongoClient()
 db = client.spotify_db
 all_tracks = db.all_tracks
+
 parsed_playlists = db.parsed_playlists
 from get_tids import *
 
@@ -65,7 +66,7 @@ def insert_tracks(tids, playlist_id):
             all_tracks.insert_one(new_track)
 
 @timeout(10)
-def add_playlist(playlist_id):
+def add_playlist(playlist_id, user=False):
     if parsed_playlists.count_documents({'_id': playlist_id}, limit = 1) != 0:
         # print(f'{playlist_id} already parsed')
         return parsed_playlists.find_one({'_id': playlist_id})['tids']
@@ -75,7 +76,7 @@ def add_playlist(playlist_id):
         return None
     user_id = playlist['owner']['id']
     total_tracks = playlist['tracks']['total']
-    if total_tracks > 700 or total_tracks < 3:
+    if total_tracks > 700 or total_tracks < 3 and not user:
         # print(f'Too many (or few!) songs.  Not adding {playlist_id} to database')
         return None
     all_tids = get_tids_from_playlist(playlist)
@@ -92,13 +93,20 @@ def add_playlist(playlist_id):
     insert_tracks(all_tids, playlist_id)
     name = playlist.get('name', '')
     description = playlist.get('description', '')
+    language = nlp(description).lang_
+    if language != 'en':
+        description = ''
     lemmas = lemmatize_playlist(name)
     parsed_playlists.insert_one({'_id': playlist_id, 'tids': all_tids, 'description': description,
                              'name': name, 'lemmas': lemmas, 'user_id': user_id})
     return all_tids
 
 # df = get_playlist_ids()
-# start = 30000
-# end = 50000
+# start = 50000
+# end = 75000
 # data = df.iloc[start:end]
 # data.playlist_ids.progress_apply(add_playlist)
+# parsed_playlists.find_one({'_id': '4uv8fD8cxHhYM8RUy7HteL'})
+# i = 0
+# doc = nlp('')
+# doc.lang_

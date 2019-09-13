@@ -14,10 +14,12 @@ client_credentials_manager = SpotifyClientCredentials(client_id=spotify_client_i
 sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
 from database_querying import get_playlist_word_counts, get_top_n_tracks, get_tracks
 import pandas as pd
+from textblob import TextBlob
+import numpy as np
 
 my_playlist = '37i9dQZEVXbLRQDuF5jeBp'
 
-def get_tids(playlist_id):
+def fetch_tids(playlist_id):
     all_tids = list()
     playlist = sp.user_playlist(playlist_id = playlist_id, user = None)
     if not playlist:
@@ -35,34 +37,30 @@ def get_tids(playlist_id):
 
 def generate_word_counts(playlist_id = None, tids=None):
     if playlist_id:
-        tids = get_tids(playlist_id)
+        tids = fetch_tids(playlist_id)
     all_counts = defaultdict(Counter)
-    tid_map = defaultdict()
     for tid in tids:
         try:
-            counts, track_name, artist_name = get_playlist_word_counts(tid)
+            counts = get_playlist_word_counts(tid)
             all_counts[tid] = counts
-            tid_map[tid] = f'{track_name} | {artist_name}  -----'
         except:
             print(f'{tid}   ----   not parsed yet.  Relax, dawg.')
-    return all_counts, tid_map
+    return all_counts
 
 
-def rank_songs_by_word(word, all_counts, id_map):
-    song_rankings = Counter()
+def rank_songs_by_word(word, all_counts):
+    song_rankings = defaultdict(Counter)
     for key, counts in all_counts.items():
-        title = id_map[key]
-        song_rankings[title] = counts[word]
+        song_rankings[tid] = counts[word]
     song_rankings += Counter()
     return song_rankings.most_common()
 
 top_500 = get_top_n_tracks(500)
 top_500_data = get_tracks(top_500)
-top_500_data[0]
+top_500_data[0]['lyrics']
 # x = spotify(popularity)
 # y = actual popularity
-from textblob import TextBlob
-import numpy as np
+
 
 rows = list()
 for track in top_500_data:
@@ -80,11 +78,8 @@ for track in top_500_data:
 
 import pandas as pd
 df = pd.DataFrame(rows)
-df.head()
 import plotly.express as px
 fig = px.scatter(df, x="lyrical_sentiment", y="audio_sentiment", hover_name='title', color='spotify_popularity')
-
-
 fig = plot_playlist(my_playlist, 'lyrical_sentiment', 'audio_sentiment', 'popularity')
 fig.show()
 
@@ -95,9 +90,4 @@ df
 all_counts, tid_map = generate_word_counts(tids = top_500)
 
 
-rank_songs_by_word('workout', all_counts, id_map)
-
-
-top_500
-# get most associated words
-get_playlist_word_counts('7m9OqQk4RVRkw9JJdeAw96')[0].most_common()
+rank_songs_by_word('workout', all_counts)

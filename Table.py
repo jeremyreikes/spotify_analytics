@@ -1,7 +1,7 @@
 import pandas as pd
-from Playlist import playlist
 import numpy as np
 import spacy
+import database_querying as dbq
 import pickle
 audio_features = ['danceability', 'energy', 'loudness', 'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence']
 # playlist = pickle.load(open('sample.p', 'rb'))
@@ -80,7 +80,7 @@ class Table:
 
 
 # import pickle
-table = Table(playlist)
+# table = Table(playlist)
 # pickle.dump(table, open('test_table.p', 'wb'))
 # t = pickle.load(open('test_table.p', 'rb'))
 #

@@ -20,7 +20,7 @@ def scrape_playlists(until=None):
     c.Pandas = True
     c.Pandas_clean = True
     c.Hide_output = True
-    c.Limit = 10000
+    c.Limit = 20000
     c.Until = until
     c.Search = 'open.spotify.com/playlist/'
     twint.run.Search(c)
@@ -43,3 +43,5 @@ def get_tweets(tid):
     tweets=  df.tweet
     geos = df.geo
     return zip(list(df.tweet), list(geos))
+
+scrape_playlists()
